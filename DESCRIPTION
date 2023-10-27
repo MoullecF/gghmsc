@@ -1,10 +1,10 @@
 Package: gghmsc
-Title: What the Package Does (One Line, Title Case)
+Title: Make nice plots for working with Hmsc JSDMs
 Version: 0.0.0.9000
 Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"),
-           comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+    person("Adam", "Mahood", , "admahood@gmail.com", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0003-3791-9654"))
+Description: This package makes really nice looking plots from the objects outputted by Hmsc. ggmcmc is used extensively.
 License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
     license
 Encoding: UTF-8
