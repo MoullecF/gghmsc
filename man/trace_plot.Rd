@@ -4,7 +4,7 @@
 \alias{trace_plot}
 \title{Trace plots}
 \usage{
-trace_plot(Hm, which)
+trace_plot(Hm, which = "beta")
 }
 \arguments{
 \item{Hm}{Hmsc object}

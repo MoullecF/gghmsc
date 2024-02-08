@@ -8,37 +8,43 @@
 #' @export
 ggplot_convergence <- function(Hm, beta = TRUE, V=FALSE, gamma = FALSE,
                                omega=FALSE, title = "Model Convergence"){
+  requireNamespace("Hmsc")
+  requireNamespace("coda")
+  requireNamespace("dplyr")
+  requireNamespace("tibble")
 
-  mpost <- convertToCodaObject(Hm)
+  mpost <- Hmsc::convertToCodaObject(Hm)
 
   d <-
     bind_rows(
-      effectiveSize(mpost$Beta) %>%
-        as_tibble() %>% mutate(fit_statistic = "ess", variable = "beta"),
-      gelman.diag(mpost$Beta, multivariate=FALSE)$psrf%>%
+      coda::effectiveSize(mpost$Beta) %>%
+        tibble::as_tibble() %>%
+        dplyr::mutate(fit_statistic = "ess", variable = "beta"),
+      coda::gelman.diag(mpost$Beta, multivariate=FALSE)$psrf%>%
         as_tibble() %>% dplyr::rename(value = `Point est.`) %>%
         mutate(variable = "beta", fit_statistic = "psrf")
     )
 
   if(V) {
     d <- d %>%
-      bind_rows(
-        effectiveSize(mpost$V) %>%
-          as_tibble() %>% mutate(fit_statistic = "ess", variable = "V")) %>%
-      bind_rows(gelman.diag(mpost$V, multivariate=FALSE)$psrf%>%
-                  as_tibble() %>% dplyr::rename(value = `Point est.`) %>%
-                  mutate(variable = "V", fit_statistic = "psrf")
+      dplyr::bind_rows(
+        coda::effectiveSize(mpost$V) %>%
+          tibble::as_tibble() %>%
+          dplyr::mutate(fit_statistic = "ess", variable = "V")) %>%
+      dplyr::bind_rows(coda::gelman.diag(mpost$V, multivariate=FALSE)$psrf%>%
+                  tibble::as_tibble() %>% dplyr::rename(value = `Point est.`) %>%
+                  dplyr::mutate(variable = "V", fit_statistic = "psrf")
       )
   }
 
   if(gamma) {
     d <- d %>%
-      bind_rows(
-        effectiveSize(mpost$Gamma) %>%
-          as_tibble() %>% mutate(fit_statistic = "ess", variable = "gamma")) %>%
-      bind_rows(gelman.diag(mpost$Gamma, multivariate=FALSE)$psrf%>%
-                  as_tibble() %>% dplyr::rename(value = `Point est.`) %>%
-                  mutate(variable = "gamma", fit_statistic = "psrf")
+      dplyr::bind_rows(
+        coda::effectiveSize(mpost$Gamma) %>%
+          tibble::as_tibble() %>% dplyr::mutate(fit_statistic = "ess", variable = "gamma")) %>%
+      dplyr::bind_rows(coda::gelman.diag(mpost$Gamma, multivariate=FALSE)$psrf%>%
+                  tibble::as_tibble() %>% dplyr::rename(value = `Point est.`) %>%
+                 dplyr::mutate(variable = "gamma", fit_statistic = "psrf")
       )
   }
 
@@ -50,12 +56,12 @@ ggplot_convergence <- function(Hm, beta = TRUE, V=FALSE, gamma = FALSE,
     }
 
     d <- d %>%
-      bind_rows(
-        effectiveSize(tmp) %>%
-          as_tibble() %>% mutate(fit_statistic = "ess", variable = "omega")) %>%
-      bind_rows(gelman.diag(tmp, multivariate=FALSE)$psrf%>%
-                  as_tibble() %>% dplyr::rename(value = `Point est.`) %>%
-                  mutate(variable = "omega", fit_statistic = "psrf")
+      dplyr::bind_rows(
+        coda::effectiveSize(tmp) %>%
+          tibble::as_tibble() %>% dplyr::mutate(fit_statistic = "ess", variable = "omega")) %>%
+      dplyr::bind_rows(coda::gelman.diag(tmp, multivariate=FALSE)$psrf%>%
+                  tibble::as_tibble() %>% dplyr::rename(value = `Point est.`) %>%
+                  dplyr::mutate(variable = "omega", fit_statistic = "psrf")
       )
   }
 
@@ -64,7 +70,7 @@ ggplot_convergence <- function(Hm, beta = TRUE, V=FALSE, gamma = FALSE,
                                         1.01))
 
 
-  ggplot(d, aes(x=value)) +
+  ggplot2::ggplot(d, aes(x=value)) +
     geom_histogram(bins=70) +
     geom_vline(data = vline_df, aes(xintercept = xintercept), color="red", lty=2)+
     facet_grid(variable~fit_statistic, scales='free') +
@@ -76,7 +82,7 @@ ggplot_convergence <- function(Hm, beta = TRUE, V=FALSE, gamma = FALSE,
 #' @param Hm Hmsc object
 #' @param which Can be "beta", "gamma", or "v"
 #' @export
-trace_plot <- function(Hm, which){
+trace_plot <- function(Hm, which = "beta"){
   requireNamespace("Hmsc")
   requireNamespace("ggmcmc")
   co <- Hmsc::convertToCodaObject(Hm)
@@ -91,24 +97,24 @@ trace_plot <- function(Hm, which){
 ggplot_ess <- function(Hm, beta = TRUE, V=FALSE, gamma = FALSE,
                        omega=FALSE, title = "Model Convergence"){
 
-  mpost <- convertToCodaObject(Hm)
+  mpost <- Hmsc::convertToCodaObject(Hm)
 
-  d <- effectiveSize(mpost$Beta) %>%
-    as_tibble() %>% mutate(fit_statistic = "ess", variable = "beta")
+  d <- coda::effectiveSize(mpost$Beta) %>%
+    tibble::as_tibble() %>% dplyr::mutate(fit_statistic = "ess", variable = "beta")
 
   if(V) {
     d <- d %>%
-      bind_rows(
-        effectiveSize(mpost$V) %>%
-          as_tibble() %>% mutate(fit_statistic = "ess", variable = "V"))
+      dplyr::bind_rows(
+        coda::effectiveSize(mpost$V) %>%
+          tibble::as_tibble() %>% dplyr::mutate(fit_statistic = "ess", variable = "V"))
 
   }
 
   if(gamma) {
     d <- d %>%
-      bind_rows(
-        effectiveSize(mpost$Gamma) %>%
-          as_tibble() %>% mutate(fit_statistic = "ess", variable = "gamma"))
+      dplyr::bind_rows(
+        coda::effectiveSize(mpost$Gamma) %>%
+          tibble::as_tibble() %>% dplyr::mutate(fit_statistic = "ess", variable = "gamma"))
 
   }
 
@@ -121,15 +127,15 @@ ggplot_ess <- function(Hm, beta = TRUE, V=FALSE, gamma = FALSE,
 
     d <- d %>%
       bind_rows(
-        effectiveSize(tmp) %>%
-          as_tibble() %>% mutate(fit_statistic = "ess", variable = "omega"))
+        coda::effectiveSize(tmp) %>%
+          tibble::as_tibble() %>% dplyr::mutate(fit_statistic = "ess", variable = "omega"))
   }
 
   vline_df <- data.frame(fit_statistic = "ess",
                          xintercept = length(mpost$Beta)*nrow(mpost$Beta[[1]]))
 
 
-  ggplot(d, aes(x=value)) +
+  ggplot2::ggplot(d, aes(x=value)) +
     geom_histogram(bins=70) +
     geom_vline(data = vline_df, aes(xintercept = xintercept), color="red", lty=2)+
     facet_grid(variable~fit_statistic, scales='free') +
@@ -213,7 +219,14 @@ ggplot_beta <- function(Hm,
                         support_level = 0.89,
                         lut_varnames = NULL,
                         lut_sppnames = NULL, no_intercept = TRUE, title = NA){
-  postBeta <- getPostEstimate(Hm, parName = "Beta")
+  requireNamespace("Hmsc")
+  requireNamespace("tibble")
+  requireNamespace('dplyr')
+  requireNamespace('ggplot2')
+  requireNamespace('magrittr')
+  requireNamespace('ggtext')
+  library(tidyverse)
+  postBeta <- Hmsc::getPostEstimate(Hm, parName = "Beta")
 
   covNamesNumbers <- c(TRUE, FALSE)
   covNames = character(Hm$nc)
@@ -231,48 +244,47 @@ ggplot_beta <- function(Hm,
 
 
   means <- postBeta$mean %>%
-    as_tibble() %>%
-    rowid_to_column("env_var") %>%
-    mutate(env_var = c(covNames)) %>%
-    pivot_longer(cols=names(.)[2:ncol(.)], names_to = "Species", values_to = "Mean")
+    tibble::as_tibble() %>%
+    tibble::rowid_to_column("env_var") %>%
+    dplyr::mutate(env_var = c(covNames)) %>%
+    tidyr::pivot_longer(cols=names(.)[2:ncol(.)], names_to = "Species", values_to = "Mean")
 
 
   supported <- postBeta$support %>%
-    as_tibble() %>%
-    rowid_to_column("env_var") %>%
-    mutate(env_var = covNames) %>%
-    pivot_longer(cols=names(.)[2:ncol(.)],
+    tibble::as_tibble() %>%
+    tibble::rowid_to_column("env_var") %>%
+    dplyr::mutate(env_var = covNames) %>%
+    tidyr::pivot_longer(cols=names(.)[2:ncol(.)],
                  names_to = "Species",
                  values_to = "Support") %>%
-    filter(Support > support_level | Support < (1-support_level),
+    dplyr::filter(Support > support_level | Support < (1-support_level),
            env_var != "(Intercept)") %>%
-    left_join(means, by = c("env_var", "Species"))%>%
-    mutate(sign = ifelse(Mean>0, "+", "-"))
+    dplyr::left_join(means, by = c("env_var", "Species"))%>%
+    dplyr::mutate(sign = ifelse(Mean>0, "+", "-"))
 
   vp_order <-   colSums(Hm$Y) %>%
-    as_tibble(rownames = "Species") %>%
+    tibble::as_tibble(rownames = "Species") %>%
     dplyr::rename(prevalence = value) %>%
-    left_join(Hm$TrData %>% tibble::rownames_to_column("Species")) %>%
-    arrange(desc(introduced), (prevalence)) %>%
-    mutate(Species_f = factor(Species, levels = .$Species)) %>%
-    filter(Species %in% supported$Species)
+    dplyr::arrange(desc(prevalence)) %>%
+    dplyr::mutate(Species_f = factor(Species, levels = .$Species)) %>%
+    dplyr::filter(Species %in% supported$Species)
 
   supported <- supported %>%
-    left_join(vp_order)#
+    dplyr::left_join(vp_order)#
 
-  if(is.vector(lut_varnames)) supported <- supported %>% mutate(env_var = lut_varnames[env_var])
-  if(is.vector(lut_sppnames)) supported <- supported %>% mutate(Speices = lut_varnames[Species])
-  if(no_intercept) supported <- supported %>% filter(env_var != "(Intercept)")
+  if(is.vector(lut_varnames)) supported <- supported %>% dplyr::mutate(env_var = lut_varnames[env_var])
+  if(is.vector(lut_sppnames)) supported <- supported %>% dplyr::mutate(Speices = lut_varnames[Species])
+  if(no_intercept) supported <- supported %>% dplyr::filter(env_var != "(Intercept)")
 
   p_beta <- supported %>%
-    ggplot(aes(x=env_var,y=reorder(Species_f,Species))) +
+    ggplot2::ggplot(aes(x=env_var,y=reorder(Species_f,Species))) +
     geom_tile(lwd=.5, aes(fill = Mean, color = sign)) +
-    theme_pubclean()+
+    theme_classic()+
     scale_fill_steps2() +
     scale_color_manual(values = c(("red"), ("blue"))) +
     guides(color = "none")+
     scale_x_discrete(expand = c(0,1)) +
-    theme(axis.text.x = element_markdown(angle=45, vjust=1,hjust = 1),
+    theme(axis.text.x = ggtext::element_markdown(angle=45, vjust=1,hjust = 1),
           legend.position = "right",
           plot.background = element_rect(color="black"),
           plot.title = element_text(hjust = 1, face = "bold")) +
