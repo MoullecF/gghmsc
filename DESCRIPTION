@@ -5,8 +5,19 @@ Authors@R:
     person("Adam", "Mahood", , "admahood@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-3791-9654"))
 Description: This package makes really nice looking plots from the objects outputted by Hmsc. ggmcmc is used extensively.
-License: `use_mit_license()`, `use_gpl3_license()` or friends to pick a
-    license
+License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.1
+Imports: coda,
+  Hmsc,
+  dplyr,
+  tibble,
+  ggcorrplot,
+  ggdist,
+  ggmcmc,
+  ggnewscale,
+  ggplot2,
+  ggtext,
+  tidyr,
+  ggthemes
