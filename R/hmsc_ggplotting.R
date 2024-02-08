@@ -265,7 +265,7 @@ ggplot_beta <- function(Hm,
   vp_order <-   colSums(Hm$Y) %>%
     tibble::as_tibble(rownames = "Species") %>%
     dplyr::rename(prevalence = value) %>%
-    dplyr::arrange(desc(prevalence)) %>%
+    dplyr::arrange(prevalence) %>%
     dplyr::mutate(Species_f = factor(Species, levels = .$Species)) %>%
     dplyr::filter(Species %in% supported$Species)
 
