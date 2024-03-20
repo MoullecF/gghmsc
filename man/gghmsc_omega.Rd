@@ -9,7 +9,7 @@ gghmsc_omega(
   support_level = 0.89,
   hc.method = "single",
   hc.order = TRUE,
-  lut_gensp,
+  lut_gensp = NA,
   axis_text_colors_x = "black",
   axis_text_colors_y = "black",
   title = "Residual Species Associations"

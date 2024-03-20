@@ -309,6 +309,7 @@ gghmsc_beta <- function(Hm,
     ggplot2::scale_x_discrete(expand = c(0,1)) +
     ggplot2::theme(axis.text.x = ggtext::element_markdown(angle=45, vjust=1,hjust = 1),
           legend.position = "right",
+          panel.grid.major.y = element_line(color = "grey30", lty=3),
           plot.background = ggplot2::element_rect(color="black"),
           plot.title = ggplot2::element_text(hjust = 1, face = "bold")) +
     ggplot2::xlab("Environmental Filters")+
@@ -534,7 +535,7 @@ gghmsc_omega <- function(Hm,
                          support_level = 0.89,
                          hc.method = "single",
                          hc.order = TRUE,
-                         lut_gensp,
+                         lut_gensp = NA,
                          axis_text_colors_x = "black",
                          axis_text_colors_y = "black",
                          title = "Residual Species Associations"){
@@ -543,10 +544,10 @@ gghmsc_omega <- function(Hm,
 
   hmdf_mean <- OmegaCor[[1]]$mean |>
     as.matrix()
-
+  if(!is.na(lut_gensp[1])){
   rownames(hmdf_mean) <- lut_gensp[rownames(hmdf_mean)]
   colnames(hmdf_mean) <- lut_gensp[colnames(hmdf_mean)]
-
+}
 
   pcor1<- ggcorrplot::ggcorrplot(hmdf_mean,
                                  type = "lower",
