@@ -309,7 +309,7 @@ gghmsc_beta <- function(Hm,
     ggplot2::scale_x_discrete(expand = c(0,1)) +
     ggplot2::theme(axis.text.x = ggtext::element_markdown(angle=45, vjust=1,hjust = 1),
           legend.position = "right",
-          panel.grid.major.y = element_line(color = "grey30", lty=3),
+          panel.grid.major.y = ggplot2::element_line(color = "grey", linetype=3),
           plot.background = ggplot2::element_rect(color="black"),
           plot.title = ggplot2::element_text(hjust = 1, face = "bold")) +
     ggplot2::xlab("Environmental Filters")+
