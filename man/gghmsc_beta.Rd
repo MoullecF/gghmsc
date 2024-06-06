@@ -6,7 +6,11 @@
 \usage{
 gghmsc_beta(
   Hm,
-  grouping_var = NA,
+  order_x = NA,
+  grouping_var_y = NA,
+  grouping_var_y_2 = NA,
+  n_gvy = 1,
+  spp_exclude = NA,
   support_level = 0.89,
   lut_varnames = NULL,
   lut_sppnames = NULL,
@@ -14,6 +18,23 @@ gghmsc_beta(
   title = NA
 )
 }
+\arguments{
+\item{order_x}{order the variables on the x axis}
+
+\item{grouping_var_y}{group the species on the Y axis by traits}
+}
 \description{
 Plot beta posterior estimates as colored boxes
+}
+\examples{
+data("Hm")
+library(ggplot2)
+label_df <- data.frame(x = rep(12.75), y = c(1.5,8.5, 10.5, 16.5, 19.5),
+                       label = c("IF", "IG", "NF", "NG", "NW"))
+gghmsc_beta(Hm, grouping_var_y = Hm$TrData$fg,
+            spp_exclude = c("Agropyron cristatum", "Bassia prostrata")) +
+  geom_hline(yintercept = c(7.5, 9.5, 15.5, 18.5)) +
+  geom_text(data = label_df, aes(x=x,y=y, label=label), angle =90)
+
+
 }

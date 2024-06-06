@@ -86,7 +86,7 @@ gghmsc_convergence <- function(Hm,
 #' @param Hm Hmsc object
 #' @param which Can be "beta", "gamma", or "v"
 #' @export
-gghmsc_plot <- function(Hm,
+gghmsc_traceplot <- function(Hm,
                         which = "beta"){
   requireNamespace("Hmsc")
   requireNamespace("ggmcmc")
@@ -234,12 +234,31 @@ gghmsc_vp <- function(Hm,
 
 #' Plot beta posterior estimates as colored boxes
 #'
+#' @param order_x order the variables on the x axis
+#' @param grouping_var_y group the species on the Y axis by traits
+#' @examples
+#' data("Hm")
+#' library(ggplot2)
+#' label_df <- data.frame(x = rep(12.75), y = c(1.5,8.5, 10.5, 16.5, 19.5),
+#'                        label = c("IF", "IG", "NF", "NG", "NW"))
+#' gghmsc_beta(Hm, grouping_var_y = Hm$TrData$fg,
+#'             spp_exclude = c("Agropyron cristatum", "Bassia prostrata")) +
+#'   geom_hline(yintercept = c(7.5, 9.5, 15.5, 18.5)) +
+#'   geom_text(data = label_df, aes(x=x,y=y, label=label), angle =90)
+#'
+#'
 #' @export
 gghmsc_beta <- function(Hm,
-                        grouping_var = NA,
+                        order_x = NA,
+                        grouping_var_y = NA,
+                        grouping_var_y_2 = NA,
+                        n_gvy = 1,
+                        spp_exclude = NA,
                         support_level = 0.89,
                         lut_varnames = NULL,
-                        lut_sppnames = NULL, no_intercept = TRUE, title = NA){
+                        lut_sppnames = NULL,
+                        no_intercept = TRUE,
+                        title = NA){
   requireNamespace("Hmsc")
   requireNamespace("tibble")
   requireNamespace('dplyr')
@@ -285,6 +304,19 @@ gghmsc_beta <- function(Hm,
     dplyr::arrange(prevalence) |>
     dplyr::pull(Species)
 
+  if(!is.na(grouping_var_y[1])){
+    if(n_gvy == 1){
+    sp_sorted <- Hm$TrData |>
+      tibble::as_tibble(rownames = "species") |>
+      dplyr::arrange(grouping_var_y) |>
+      dplyr::pull(species)}else{
+        sp_sorted <- Hm$TrData |>
+          tibble::as_tibble(rownames = "species") |>
+          dplyr::arrange(grouping_var_y, grouping_var_y_2) |>
+          dplyr::pull(species)
+      }
+  }
+
   vp_order <-   colSums(Hm$Y) |>
     tibble::as_tibble(rownames = "Species") |>
     dplyr::rename(prevalence = value) |>
@@ -292,13 +324,22 @@ gghmsc_beta <- function(Hm,
     dplyr::mutate(Species_f = factor(Species, levels = sp_sorted)) |>
     dplyr::filter(Species %in% supported$Species)
 
+
   supported <- supported |>
     dplyr::left_join(vp_order)#
 
-  if(is.vector(lut_varnames)) supported <- supported |> dplyr::mutate(env_var = lut_varnames[env_var])
-  if(is.vector(lut_sppnames)) supported <- supported |> dplyr::mutate(Speices = lut_varnames[Species])
-  if(no_intercept) supported <- supported |> dplyr::filter(env_var != "(Intercept)")
+  if(!is.na(order_x[1])){
+    var_order <- tibble::tibble(var1 = order_x) |>
+      dplyr::mutate(order = 1:length(order_x)) |>
+      dplyr::mutate(order_f = factor(var1, levels = order_x))
 
+
+  }
+
+  if(is.vector(lut_varnames)) supported <- supported |> dplyr::mutate(env_var = lut_varnames[env_var])
+  if(is.vector(lut_sppnames)) supported <- supported |> dplyr::mutate(Species = lut_varnames[Species])
+  if(no_intercept) supported <- supported |> dplyr::filter(env_var != "(Intercept)")
+  if(class(spp_exclude) == "character") supported <- dplyr::filter(supported, !Species %in% spp_exclude)
   p_beta <- supported |>
     ggplot2::ggplot(ggplot2::aes(x=env_var,y=reorder(Species_f,Species))) +
     ggplot2::geom_tile(lwd=.5,ggplot2::aes(fill = Mean, color = sign)) +
