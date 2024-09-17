@@ -1,6 +1,6 @@
 Package: gghmsc
 Title: Make nice plots for working with Hmsc JSDMs
-Version: 0.1.2
+Version: 0.1.4
 Authors@R: 
     person("Adam", "Mahood", , "admahood@gmail.com", role = c("aut", "cre"),
            comment = c(ORCID = "0000-0003-3791-9654"))

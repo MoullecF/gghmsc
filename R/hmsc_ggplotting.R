@@ -331,8 +331,13 @@ gghmsc_beta <- function(Hm,
   if(!is.na(order_x[1])){
     var_order <- tibble::tibble(var1 = order_x) |>
       dplyr::mutate(order = 1:length(order_x)) |>
-      dplyr::mutate(order_f = factor(var1, levels = order_x))
+      dplyr::mutate(order_f = factor(var1, levels = order_x)) |>
+      dplyr::rename(env_var = var1)
 
+    supported <- supported |>
+      left_join(var_order) |>
+      dplyr::select(-env_var) |>
+      dplyr::rename(env_var = order_f)
 
   }
 
@@ -456,7 +461,12 @@ gghmsc_gamma <- function(Hm,
                          support_level = 0.89,
                          no_intercept = TRUE,
                          title = "Effects on Traits"){
-
+  requireNamespace('magrittr')
+  requireNamespace('stringr')
+  requireNamespace('Hmsc')
+  requireNamespace('dplyr')
+  requireNamespace('tibble')
+  requireNamespace('ggplot2')
   covNamesNumbers <- c(TRUE, FALSE)
   covNames = character(Hm$nc)
   for (i in 1:Hm$nc) {
@@ -484,49 +494,53 @@ gghmsc_gamma <- function(Hm,
     }
   }
 
-  trNames <- str_remove_all(trNames, "yes") |>
-    str_remove("pp")
+  trNames <- stringr::str_remove_all(trNames, "yes") |>
+    stringr::str_remove("pp")
 
-  postGamma = getPostEstimate(Hm, parName="Gamma")
+  postGamma = Hmsc::getPostEstimate(Hm, parName="Gamma")
 
   means_gamma <- postGamma$mean |>
-    as_tibble() |>
-    rowid_to_column("env_var") |>
-    mutate(env_var = c(covNames)) |>
-    pivot_longer(cols=names(.)[2:ncol(.)], names_to = "Trait", values_to = "Mean")
+    tibble::as_tibble() |>
+    tibble::rowid_to_column("env_var") |>
+    dplyr::mutate(env_var = c(covNames))
+
+  means_gammal <- means_gamma |>
+    tidyr::pivot_longer(cols=names(means_gamma)[2:ncol(means_gamma)],
+                        names_to = "Trait", values_to = "Mean")
 
   lut_gamma <- trNames
-  names(lut_gamma) <- unique(means_gamma$Trait)
+  names(lut_gamma) <- unique(means_gammal$Trait)
 
   supported_gamma <- postGamma$support |>
-    as_tibble() |>
-    rowid_to_column("env_var") |>
-    mutate(env_var = covNames) |>
-    pivot_longer(cols=names(.)[2:ncol(.)],
+    tibble::as_tibble() |>
+    tibble::rowid_to_column("env_var") |>
+    dplyr::mutate(env_var = covNames) %>%
+    tidyr::pivot_longer(cols=names(.)[2:ncol(.)],
                  names_to = "Trait",
                  values_to = "Support") |>
-    filter(Support > support_level |Support< (1-support_level),
+    dplyr::filter(Support > support_level |Support< (1-support_level),
            env_var != "(Iintercept)") |>
-    left_join(means_gamma, by = c("env_var", "Trait"))|>
-    mutate(sign = ifelse(Mean>0, "+", "-"),
+    dplyr::left_join(means_gammal, by = c("env_var", "Trait"))|>
+    dplyr::mutate(sign = ifelse(Mean>0, "+", "-"),
            Trait = lut_gamma[Trait])|>
-    filter(env_var != "(Intercept)")
+    dplyr::filter(Trait != "(Intercept)",
+                  env_var != "(Intercept)")
 
   p_gamma <- supported_gamma |>
-    ggplot(ggplot2::aes(x=env_var,y=(Trait), fill = Mean, color = sign)) +
-    geom_tile(lwd=.5) +
-    theme_pubclean()+
-    scale_fill_steps2() +
-    scale_color_manual(values = c(("red"), ("blue"))) +
-    guides(color = "none")+
-    theme(axis.text.x = element_text(angle=45, vjust=1,hjust = 1),
+    ggplot2::ggplot(ggplot2::aes(x=env_var,y=(Trait), fill = Mean, color = sign)) +
+    ggplot2::geom_tile(lwd=.5) +
+    ggpubr::theme_pubclean()+
+    ggplot2::scale_fill_steps2() +
+    ggplot2::scale_color_manual(values = c(("red"), ("blue"))) +
+    ggplot2::guides(color = "none")+
+    ggplot2::theme(axis.text.x = element_text(angle=45, vjust=1,hjust = 1),
           # axis.title = element_blank(),
           legend.position = "right",
           plot.background = element_rect(color="black"),
           plot.title = element_text(hjust = 1, face = "bold")) +
-    ggtitle(title) +
-    xlab("Environmental Filters") +
-    ylab("Traits")
+    ggplot2::ggtitle(title) +
+    ggplot2::xlab("Environmental Filters") +
+    ggplot2::ylab("Traits")
 
   return(p_gamma)
 }
@@ -612,3 +626,83 @@ gghmsc_omega <- function(Hm,
 
   return(pcor1)
 }
+
+#' get R2 for each species
+#'
+#' @export
+gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
+                       title = "Variance Explained"){
+  requireNamespace("Hmsc")
+  requireNamespace("tibble")
+  requireNamespace("tidyr")
+  requireNamespace("ggplot2")
+  requireNamespace("ggtext")
+  requireNamespace("dplyr")
+
+  mpost <- Hmsc::convertToCodaObject(Hm)
+  preds <- Hmsc::computePredictedValues(Hm)
+  MF <- Hmsc::evaluateModelFit(hM=Hm, predY=preds)
+  df <- MF %>%
+    tibble::as_tibble() %>%
+    tidyr::pivot_longer(cols = names(.))
+  spp <- colnames(Hm$Y)
+
+  if(which == "named"){
+    means <- df%>%
+      dplyr::filter(name == "TjurR2") %>%
+      dplyr::mutate(species = spp)
+    if(sp_names[1] != "none") means <- dplyr::mutate(means, species = sp_names[species])
+    return(ggplot2::ggplot(means, ggplot2::aes(x=value, y=species)) +
+             ggplot2::geom_bar(stat = "identity") +
+             ggplot2::ggtitle(title) +
+             ggplot2::ylab("Species") +
+             ggplot2::xlab("Tjur R<sup>2</sup>") +
+             ggplot2::theme(axis.title.x = ggtext::element_markdown(),
+                            axis.text.y = ggplot2::element_text(face = "italic")))
+  }
+
+  if(which == "all"){
+    means <- df %>%
+      dplyr::group_by(name) %>%
+      dplyr::summarise(mean = mean(value)) %>%
+      dplyr::ungroup()
+
+    return(ggplot2::ggplot(df) +
+             ggplot2::geom_histogram(aes(x=value)) +
+             ggplot2::facet_wrap(~name) +
+             ggplot2::geom_text(data = means, ggplot2::aes(label = paste("Avg =", round(mean, 2))), x=.75, y=4) +
+             ggplot2::ggtitle(title))}
+
+  if(which == "r2"){
+    means <- df%>%
+      filter(name == "TjurR2") %>%
+      group_by(name) %>%
+      summarise(mean = mean(value),
+                max = max(value),
+                min = min(value)) %>%
+      ungroup()
+
+    return(ggplot2::ggplot(df%>% dplyr::filter(name == "TjurR2") ) +
+             ggplot2::geom_histogram(aes(x=value),bins = 15) +
+             ggplot2::ggtitle(paste("Tjur R<sup>2</sup>, Avg:", round(means$mean, 2),
+                                    ", Range: ", round(means$min, 2)," - ",round(means$max, 2))) +
+             ggplot2::ggtitle(title) +
+             ggplot2::theme(plot.title = element_markdown()))
+  }
+}
+
+
+
+lut_varnames <- c("Cheatgrass Cover" = "B_tectorum",
+                     "Shrub Cover" = "shrub_pq",
+                     "Native Perennial Cover" = "perennial_herbaceous",
+                     "Grazing Intensity" = "grazing_intensity",
+                     "Later Ignitions" = "StartMonth",
+                     "Time Since Fire" = "tsf",
+                     'Pre-Fire AET' = 'max_aet_z_preceeding_fire',
+                     'Pre-Fire Tmin' = 'median_tmn_z_preceeding_fire',
+                     'Post-Fire AET' = 'min_aet_z_after_fire',
+                     'Pre-Fire AET' = 'min_aet_z_preceeding_fire',
+                     'max_def_z_after_fire' = 'Post-Fire CWD',
+                     "elevation_m" = 'Elevation',
+                     'Warmer Aspects' = "folded_aspect")
