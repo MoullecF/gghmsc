@@ -627,8 +627,9 @@ gghmsc_omega <- function(Hm,
   return(pcor1)
 }
 
-#' get R2 for each species
+#' get Tjur R2 for each species
 #'
+#' @param which either all, r2 or named. all is a histogram with R2 and RSME. r2 is just R2. named is bar plot each species named on the  y axis.
 #' @export
 gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
                        title = "Variance Explained"){
@@ -650,14 +651,14 @@ gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
 
   if(which == "named"){
     means <- df |>
-      dplyr::filter(name == "TjurR2") |>
+      dplyr::filter(name %in% c("TjurR2", "R2")) |>
       dplyr::mutate(species = spp)
     if(sp_names[1] != "none") means <- dplyr::mutate(means, species = sp_names[species])
     return(ggplot2::ggplot(means, ggplot2::aes(x=value, y=species)) +
              ggplot2::geom_bar(stat = "identity") +
              ggplot2::ggtitle(title) +
              ggplot2::ylab("Species") +
-             ggplot2::xlab("Tjur R<sup>2</sup>") +
+             ggplot2::xlab("R<sup>2</sup>") +
              ggplot2::theme(axis.title.x = ggtext::element_markdown(),
                             axis.text.y = ggplot2::element_text(face = "italic")))
   }
