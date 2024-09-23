@@ -652,7 +652,8 @@ gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
   if(which == "named"){
     means <- df |>
       dplyr::filter(name %in% c("TjurR2", "R2")) |>
-      dplyr::mutate(species = spp |> str_replace_all("_", ' '))
+      dplyr::mutate(species = spp |> str_replace_all("_", ' ')) |>
+      na.omit()
     if(sp_names[1] != "none") means <- dplyr::mutate(means, species = sp_names[species])
     return(ggplot2::ggplot(means, ggplot2::aes(x=value, y=reorder(species, value))) +
              ggplot2::geom_bar(stat = "identity") +
