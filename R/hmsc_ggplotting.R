@@ -638,18 +638,19 @@ gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
   requireNamespace("ggplot2")
   requireNamespace("ggtext")
   requireNamespace("dplyr")
+  requireNamespace("magrittr")
 
   mpost <- Hmsc::convertToCodaObject(Hm)
   preds <- Hmsc::computePredictedValues(Hm)
   MF <- Hmsc::evaluateModelFit(hM=Hm, predY=preds)
-  df <- MF %>%
-    tibble::as_tibble() %>%
-    tidyr::pivot_longer(cols = names(.))
+  df <- MF |>
+    tibble::as_tibble()
+  df <- tidyr::pivot_longer(df, cols = names(df))
   spp <- colnames(Hm$Y)
 
   if(which == "named"){
-    means <- df%>%
-      dplyr::filter(name == "TjurR2") %>%
+    means <- df |>
+      dplyr::filter(name == "TjurR2") |>
       dplyr::mutate(species = spp)
     if(sp_names[1] != "none") means <- dplyr::mutate(means, species = sp_names[species])
     return(ggplot2::ggplot(means, ggplot2::aes(x=value, y=species)) +
@@ -662,9 +663,9 @@ gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
   }
 
   if(which == "all"){
-    means <- df %>%
-      dplyr::group_by(name) %>%
-      dplyr::summarise(mean = mean(value)) %>%
+    means <- df |>
+      dplyr::group_by(name) |>
+      dplyr::summarise(mean = mean(value)) |>
       dplyr::ungroup()
 
     return(ggplot2::ggplot(df) +
@@ -674,20 +675,20 @@ gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
              ggplot2::ggtitle(title))}
 
   if(which == "r2"){
-    means <- df%>%
-      filter(name == "TjurR2") %>%
-      group_by(name) %>%
-      summarise(mean = mean(value),
+    means <- df |>
+      dplyr::filter(name == "TjurR2") |>
+      dplyr::group_by(name) |>
+      dplyr::summarise(mean = mean(value),
                 max = max(value),
-                min = min(value)) %>%
-      ungroup()
+                min = min(value)) |>
+      dplyr::ungroup()
 
     return(ggplot2::ggplot(df%>% dplyr::filter(name == "TjurR2") ) +
              ggplot2::geom_histogram(aes(x=value),bins = 15) +
              ggplot2::ggtitle(paste("Tjur R<sup>2</sup>, Avg:", round(means$mean, 2),
                                     ", Range: ", round(means$min, 2)," - ",round(means$max, 2))) +
              ggplot2::ggtitle(title) +
-             ggplot2::theme(plot.title = element_markdown()))
+             ggplot2::theme(plot.title = ggtext::element_markdown()))
   }
 }
 
