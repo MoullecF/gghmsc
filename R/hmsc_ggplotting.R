@@ -652,9 +652,9 @@ gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
   if(which == "named"){
     means <- df |>
       dplyr::filter(name %in% c("TjurR2", "R2")) |>
-      dplyr::mutate(species = spp)
+      dplyr::mutate(species = spp |> str_replace_all("_", ' '))
     if(sp_names[1] != "none") means <- dplyr::mutate(means, species = sp_names[species])
-    return(ggplot2::ggplot(means, ggplot2::aes(x=value, y=species)) +
+    return(ggplot2::ggplot(means, ggplot2::aes(x=value, y=reorder(species, value))) +
              ggplot2::geom_bar(stat = "identity") +
              ggplot2::ggtitle(title) +
              ggplot2::ylab("Species") +
@@ -677,14 +677,14 @@ gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
 
   if(which == "r2"){
     means <- df |>
-      dplyr::filter(name == "TjurR2") |>
+      dplyr::filter(name == "R2") |>
       dplyr::group_by(name) |>
       dplyr::summarise(mean = mean(value),
                 max = max(value),
                 min = min(value)) |>
       dplyr::ungroup()
 
-    return(ggplot2::ggplot(df%>% dplyr::filter(name == "TjurR2") ) +
+    return(ggplot2::ggplot(df%>% dplyr::filter(name == "R2") ) +
              ggplot2::geom_histogram(aes(x=value),bins = 15) +
              ggplot2::ggtitle(paste("Tjur R<sup>2</sup>, Avg:", round(means$mean, 2),
                                     ", Range: ", round(means$min, 2)," - ",round(means$max, 2))) +
