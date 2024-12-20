@@ -6,7 +6,7 @@
 #' @param omega if TRUE, plots the omega (spp associations) parameters
 #' @param title character string to customize
 #' @export
-gghmsc_convergence <- function(Hm,
+gghm_convergence <- function(Hm,
                                beta = TRUE,
                                V=FALSE,
                                gamma = FALSE,
@@ -86,7 +86,7 @@ gghmsc_convergence <- function(Hm,
 #' @param Hm Hmsc object
 #' @param which Can be "beta", "gamma", or "v"
 #' @export
-gghmsc_traceplot <- function(Hm,
+gghm_traceplot <- function(Hm,
                         which = "beta"){
   requireNamespace("Hmsc")
   requireNamespace("ggmcmc")
@@ -99,7 +99,7 @@ gghmsc_traceplot <- function(Hm,
 #' Plot effective sample size
 #'
 #' @export
-gghmsc_ess <- function(Hm,
+gghm_ess <- function(Hm,
                        beta = TRUE,
                        V=FALSE,
                        gamma = FALSE,
@@ -161,7 +161,7 @@ gghmsc_ess <- function(Hm,
 #'
 #'
 #' @export
-gghmsc_vp <- function(Hm,
+gghm_vp <- function(Hm,
                       title = "Variance Explained",
                       cols = NULL,
                       lut_varnames = NULL,
@@ -241,14 +241,14 @@ gghmsc_vp <- function(Hm,
 #' library(ggplot2)
 #' label_df <- data.frame(x = rep(12.75), y = c(1.5,8.5, 10.5, 16.5, 19.5),
 #'                        label = c("IF", "IG", "NF", "NG", "NW"))
-#' gghmsc_beta(Hm, grouping_var_y = Hm$TrData$fg,
+#' gghm_beta(Hm, grouping_var_y = Hm$TrData$fg,
 #'             spp_exclude = c("Agropyron cristatum", "Bassia prostrata")) +
 #'   geom_hline(yintercept = c(7.5, 9.5, 15.5, 18.5)) +
 #'   geom_text(data = label_df, aes(x=x,y=y, label=label), angle =90)
 #'
 #'
 #' @export
-gghmsc_beta <- function(Hm,
+gghm_beta <- function(Hm,
                         order_x = NA,
                         grouping_var_y = NA,
                         grouping_var_y_2 = NA,
@@ -369,95 +369,105 @@ gghmsc_beta <- function(Hm,
 #' Plot beta estimates using PDFs
 #'
 #' @export
-gghmsc_beta2 <- function(Hm,
+gghm_beta2 <- function(Hm, order_var = 'prevalence',
                          lut_gensp=NA,
                          included_variables = NA,
                          lut_ivars = NA){
-  require(dplyr)
-  require(ggthemes)
-  require(tidyr)
-  require(ggplot2)
-  require(ggnewscale)
-  require(ggmcmc)
-  c<-convertToCodaObject(Hm)
-  mbc <- ggmcmc::ggs(c$Beta) |>
-    separate(.,
-             col = "Parameter",
+  requireNamespace('dplyr')
+  requireNamespace('ggthemes')
+  requireNamespace('tidyr')
+  requireNamespace('tibble')
+  requireNamespace('ggplot2')
+  requireNamespace('ggnewscale')
+  requireNamespace('ggmcmc')
+  requireNamespace("stringr")
+
+  cc<-Hmsc::convertToCodaObject(Hm)
+  mbc <- ggmcmc::ggs(cc$Beta) |>
+    tidyr::separate(col = "Parameter",
              into = c("var", "x1", "gen", "sp", "x2"),
              sep = " ") |>
-    dplyr::select(-x1, -x2,-sp) |>
-    mutate(gensp = paste(gen),
-           var = str_remove_all(var, "B\\["),
-           gensp = str_remove_all(gensp, " \\(S\\d{2}\\)\\]"))|>
-    filter(var != "(Intercept)") |>
-    group_by(var, gensp, Chain) |>
-    mutate(value = scale(value,center = F),
+    dplyr::select(-x1, -x2) |>
+    dplyr::mutate(gensp = paste0(gen, '_', sp),
+           var = stringr::str_remove_all(var, "B\\["),
+           gensp = stringr::str_remove_all(gensp, " \\(S\\d{2}\\)\\]"))|>
+    dplyr::filter(var != "(Intercept)") |>
+    dplyr::group_by(var, gensp, Chain) |>
+    dplyr::mutate(value = scale(value,center = F),
            sign = ifelse(value>0, "positive", "negative"),
            median_value = median(value)) |>
-    filter(value<4 & value>-4) |>
-    ungroup() |>
-    left_join(Hm$TrData |> tibble::rownames_to_column("gensp"))
+    dplyr::filter(value<4 & value>-4) |>
+    dplyr::ungroup()
 
   if(!is.na(lut_gensp)){mbc <- mbc |>
-    mutate(gensp = lut_gensp[gensp])}
+    dplyr::mutate(gensp = lut_gensp[gensp])}
 
   if(any(!is.na(included_variables))){
-    mbc <- filter(mbc, var %in% included_variables)
+    mbc <- dplyr::filter(mbc, var %in% included_variables)
   }
 
   prevalence <- Hm$Y |>
-    as_tibble(rownames = "plot") |>
-    pivot_longer(cols = names(.)[2:ncol(.)], names_to = "gen") |>
-    group_by(gen) |>
-    summarise(prevalence = sum(value),
-              prev_pct = sum(value)/n()*100) |>
-    mutate(prev_pct = ifelse(prev_pct<1, round(prev_pct,1), round(prev_pct))) |>
-    ungroup()
+    tibble::as_tibble(rownames = "plot")
+  prevalence <-
+    tidyr::pivot_longer(prevalence, cols = names(prevalence)[2:ncol(prevalence)],
+                 names_to = "gen") |>
+    dplyr::group_by(gen) |>
+    dplyr::summarise(prevalence = sum(value),
+              prev_pct = sum(value)/dplyr::n()*100) |>
+    dplyr::mutate(prev_pct = ifelse(prev_pct<1, round(prev_pct,1), round(prev_pct))) |>
+    dplyr::ungroup()
 
   mbc <- mbc |>
-    left_join(prevalence) |>
-    mutate(gensp = paste0(gensp, " (", prev_pct, ")")) |>
-    mutate(gensp = str_replace_all(gensp,"0.5", ".5"))
+    dplyr::left_join(prevalence) |>
+    dplyr::mutate(gensp = paste0(gensp, " (", prev_pct, ")")) |>
+    dplyr::mutate(gensp = stringr::str_replace_all(gensp,"0.5", ".5"))
 
-  vp_order <- mbc |>
-    left_join(prevalence)  |>
-    filter(var == first(mbc$var |> unique()),
+  if(order_var == 'prevalence'){vp_order <- mbc |>
+    dplyr::left_join(prevalence)  |>
+    dplyr::filter(var == dplyr::first(mbc$var |> unique()),
            Iteration ==1, Chain==1)|>
-    arrange(prevalence) |>
-    mutate(gensp_f = factor(gensp, levels = .$gensp)) |>
+    dplyr::arrange(prevalence)}else{
+      vp_order <- mbc |>
+        dplyr::left_join(prevalence)  |>
+        dplyr::filter(var == order_var,
+                      Iteration ==1, Chain==1)|>
+        dplyr::arrange(value)
+
+    }
+  vp_order <- dplyr::mutate(vp_order, gensp_f = factor(gensp, levels = vp_order$gensp)) |>
     dplyr::select(gensp, gensp_f, gen)
 
   if(any(!is.na(included_variables))){
-    mbc <- mutate(mbc, var = lut_ivars[var])
+    mbc <- dplyr::mutate(mbc, var = lut_ivars[var])
   }
-  p <- ggplot(mbc |> left_join(vp_order),
+  p <- ggplot2::ggplot(mbc |> dplyr::left_join(vp_order),
              ggplot2::aes(x=value, y = gensp,#_f,
                   group=as.factor(Chain))) +
-    scale_color_manual(values = (c("white", "grey90")))+
+    ggplot2::scale_color_manual(values = (c("white", "grey90")))+
     ggdist::stat_slab(height=2,  lwd = .5, #alpha = 0.95,
                       color = "black",
-                     ggplot2::aes(fill = after_stat(x>0),
+                     ggplot2::aes(fill = ggplot2::after_stat(x>0),
                           alpha = exp(abs(median_value))))+
-    facet_wrap(~var, scales = "free_x", nrow=1, ncol=length(unique(mbc$var))) +
-    scale_alpha_continuous(range = c(0,1.25*(1/length(unique(mbc$Chain)))))+
-    theme_classic() +
-    guides(fill="none", alpha="none", color = "none")+
-    geom_vline(xintercept=0, col="black", lty=2) +
+    ggplot2::facet_wrap(~var, scales = "free_x", nrow=1, ncol=length(unique(mbc$var))) +
+    ggplot2::scale_alpha_continuous(range = c(0,1.25*(1/length(unique(mbc$Chain)))))+
+    ggplot2::theme_classic() +
+    ggplot2::guides(fill="none", alpha="none", color = "none")+
+    ggplot2::geom_vline(xintercept=0, col="black", lty=2) +
     ggnewscale::new_scale_fill() +
-    xlab("Scaled Effect on Occurrence Probability") +
-    ylab("Species or Species Group (% Prevalence)") +
-    theme(panel.spacing.x = unit(-1, "lines"),
+    ggplot2::xlab("Scaled Effect on Occurrence Probability") +
+    ggplot2::ylab("Species or Species Group (% Prevalence)") +
+    ggplot2::theme(panel.spacing.x = ggplot2::unit(-1, "lines"),
           # panel.grid = element_blank(),
-          axis.text.x = element_blank(),
-          axis.ticks.x = element_blank(),
-          axis.text.y = element_text(size=12))#;p
+          axis.text.x = ggplot2::element_blank(),
+          axis.ticks.x = ggplot2::element_blank(),
+          axis.text.y = ggplot2::element_text(size=12))#;p
   return(p)
 }
 
 #' plot trait covariate relationships
 #'
 #' @export
-gghmsc_gamma <- function(Hm,
+gghm_gamma <- function(Hm,
                          support_level = 0.89,
                          no_intercept = TRUE,
                          title = "Effects on Traits"){
@@ -548,7 +558,7 @@ gghmsc_gamma <- function(Hm,
 #' plot trait covariate associations
 #'
 #' @export
-gghmsc_gamma2 <- function(Hm,
+gghm_gamma2 <- function(Hm,
                           lut_varnames = NA){
   c<-convertToCodaObject(Hm)
   mbc <- ggmcmc::ggs(c$Gamma) |>
@@ -586,7 +596,7 @@ gghmsc_gamma2 <- function(Hm,
 #' create a correlation plot for species associations
 #'
 #' @export
-gghmsc_omega <- function(Hm,
+gghm_omega <- function(Hm,
                          support_level = 0.89,
                          hc.method = "single",
                          hc.order = TRUE,
@@ -631,7 +641,7 @@ gghmsc_omega <- function(Hm,
 #'
 #' @param which either all, r2 or named. all is a histogram with R2 and RSME. r2 is just R2. named is bar plot each species named on the  y axis.
 #' @export
-gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
+gghm_fit <- function(Hm, which = "r2", sp_names = "none",
                        title = "Variance Explained"){
   requireNamespace("Hmsc")
   requireNamespace("tibble")
@@ -696,16 +706,16 @@ gghmsc_fit <- function(Hm, which = "r2", sp_names = "none",
 
 
 
-lut_varnames <- c("Cheatgrass Cover" = "B_tectorum",
-                     "Shrub Cover" = "shrub_pq",
-                     "Native Perennial Cover" = "perennial_herbaceous",
-                     "Grazing Intensity" = "grazing_intensity",
-                     "Later Ignitions" = "StartMonth",
-                     "Time Since Fire" = "tsf",
-                     'Pre-Fire AET' = 'max_aet_z_preceeding_fire',
-                     'Pre-Fire Tmin' = 'median_tmn_z_preceeding_fire',
-                     'Post-Fire AET' = 'min_aet_z_after_fire',
-                     'Pre-Fire AET' = 'min_aet_z_preceeding_fire',
-                     'max_def_z_after_fire' = 'Post-Fire CWD',
-                     "elevation_m" = 'Elevation',
-                     'Warmer Aspects' = "folded_aspect")
+# lut_varnames <- c("Cheatgrass Cover" = "B_tectorum",
+#                      "Shrub Cover" = "shrub_pq",
+#                      "Native Perennial Cover" = "perennial_herbaceous",
+#                      "Grazing Intensity" = "grazing_intensity",
+#                      "Later Ignitions" = "StartMonth",
+#                      "Time Since Fire" = "tsf",
+#                      'Pre-Fire AET' = 'max_aet_z_preceeding_fire',
+#                      'Pre-Fire Tmin' = 'median_tmn_z_preceeding_fire',
+#                      'Post-Fire AET' = 'min_aet_z_after_fire',
+#                      'Pre-Fire AET' = 'min_aet_z_preceeding_fire',
+#                      'max_def_z_after_fire' = 'Post-Fire CWD',
+#                      "elevation_m" = 'Elevation',
+#                      'Warmer Aspects' = "folded_aspect")
