@@ -236,15 +236,6 @@ gghm_vp <- function(Hm,
 #'
 #' @param order_x order the variables on the x axis
 #' @param grouping_var_y group the species on the Y axis by traits
-#' @examples
-#' data("Hm")
-#' library(ggplot2)
-#' label_df <- data.frame(x = rep(12.75), y = c(1.5,8.5, 10.5, 16.5, 19.5),
-#'                        label = c("IF", "IG", "NF", "NG", "NW"))
-#' gghm_beta(Hm, grouping_var_y = Hm$TrData$fg,
-#'             spp_exclude = c("Agropyron cristatum", "Bassia prostrata")) +
-#'   geom_hline(yintercept = c(7.5, 9.5, 15.5, 18.5)) +
-#'   geom_text(data = label_df, aes(x=x,y=y, label=label), angle =90)
 #'
 #'
 #' @export
@@ -335,7 +326,7 @@ gghm_beta <- function(Hm,
       dplyr::rename(env_var = var1)
 
     supported <- supported |>
-      left_join(var_order) |>
+      dplyr::left_join(var_order) |>
       dplyr::select(-env_var) |>
       dplyr::rename(env_var = order_f)
 
@@ -368,8 +359,14 @@ gghm_beta <- function(Hm,
 
 #' Plot beta estimates using PDFs
 #'
+#' @examples
+#' data("Hm")
+#' gghm_beta2(Hm)
+#'
 #' @export
 gghm_beta2 <- function(Hm, order_var = 'prevalence',
+                       grouping_var_y = NA,
+                       groupiin_var_y_2 = NA,
                          lut_gensp=NA,
                          included_variables = NA,
                          lut_ivars = NA){
@@ -383,65 +380,99 @@ gghm_beta2 <- function(Hm, order_var = 'prevalence',
   requireNamespace("stringr")
 
   cc<-Hmsc::convertToCodaObject(Hm)
-  mbc <- ggmcmc::ggs(cc$Beta) |>
+  mbc0 <- ggmcmc::ggs(cc$Beta) |>
     tidyr::separate(col = "Parameter",
-             into = c("var", "x1", "gen", "sp", "x2"),
-             sep = " ") |>
-    dplyr::select(-x1, -x2) |>
-    dplyr::mutate(gensp = paste0(gen, '_', sp),
-           var = stringr::str_remove_all(var, "B\\["),
-           gensp = stringr::str_remove_all(gensp, " \\(S\\d{2}\\)\\]"))|>
+             into = c("var", 'sp'),
+             sep = ", ") |>
+    dplyr::mutate(var = stringr::str_remove_all(var, "B\\["),
+                  var = stringr::str_remove_all(var, " \\(C\\d+\\)"),
+                  sp = stringr::str_remove_all(sp, " \\(S\\d+\\)\\]"))|>
     dplyr::filter(var != "(Intercept)") |>
-    dplyr::group_by(var, gensp, Chain) |>
+    dplyr::group_by(var, sp, Chain) |>
     dplyr::mutate(value = scale(value,center = F),
            sign = ifelse(value>0, "positive", "negative"),
            median_value = median(value)) |>
     dplyr::filter(value<4 & value>-4) |>
     dplyr::ungroup()
 
-  if(!is.na(lut_gensp)){mbc <- mbc |>
-    dplyr::mutate(gensp = lut_gensp[gensp])}
+  if(!is.na(lut_gensp)){mbc0 <- mbc0 |>
+    dplyr::mutate(sp = lut_gensp[sp])}
 
   if(any(!is.na(included_variables))){
-    mbc <- dplyr::filter(mbc, var %in% included_variables)
+    mbc0 <- dplyr::filter(mbc0, var %in% included_variables)
   }
 
   prevalence <- Hm$Y |>
     tibble::as_tibble(rownames = "plot")
-  prevalence <-
-    tidyr::pivot_longer(prevalence, cols = names(prevalence)[2:ncol(prevalence)],
-                 names_to = "gen") |>
-    dplyr::group_by(gen) |>
+  prevalence <- prevalence |>
+    tidyr::pivot_longer(cols = names(prevalence)[2:ncol(prevalence)],
+                 names_to = "sp") |>
+    dplyr::group_by(sp) |>
     dplyr::summarise(prevalence = sum(value),
               prev_pct = sum(value)/dplyr::n()*100) |>
     dplyr::mutate(prev_pct = ifelse(prev_pct<1, round(prev_pct,1), round(prev_pct))) |>
     dplyr::ungroup()
 
-  mbc <- mbc |>
+  # if(order_var == 'prevalence'){vp_order <- mbc |>
+  #   dplyr::left_join(prevalence)  |>
+  #   dplyr::filter(var == dplyr::first(mbc$var |> unique()),
+  #          Iteration ==1, Chain==1)|>
+  #   dplyr::arrange(prevalence)
+  # }else{
+  #     vp_order <- mbc |>
+  #       dplyr::left_join(prevalence)  |>
+  #       dplyr::filter(var == order_var,
+  #                     Iteration ==1, Chain==1)|>
+  #       dplyr::arrange(value)
+  #
+  # }
+  #
+  # if(!is.na(grouping_var_y[1])){
+  #   if(grouping_var_y == "origin"){
+  #     sp_sorted <- Hm$TrData |>
+  #       tibble::as_tibble(rownames = "species") |>
+  #       dplyr::arrange(origin, cots) |>
+  #       dplyr::pull(species)
+  #
+  #     }else{
+  #         sp_sorted <- Hm$TrData |>
+  #           tibble::as_tibble(rownames = "species") |>
+  #           dplyr::arrange(grouping_var_y, grouping_var_y_2) |>
+  #           dplyr::pull(species)
+  #     }
+  #   vp_order <- dplyr::mutate(vp_order,
+  #                             sp_f = factor(sp, levels = sp_sorted)) |>
+  #     dplyr::select(sp, sp_f)
+  # }else{
+  # vp_order <- dplyr::mutate(vp_order,
+  #                           sp_f = factor(sp, levels = vp_order$sp)) |>
+  #   dplyr::select(sp, sp_f)}
+
+  mbc <- mbc0 |>
     dplyr::left_join(prevalence) |>
-    dplyr::mutate(gensp = paste0(gensp, " (", prev_pct, ")")) |>
-    dplyr::mutate(gensp = stringr::str_replace_all(gensp,"0.5", ".5"))
+    dplyr::left_join(Hm$TrData |> as_tibble(rownames = "sp")) |>
+    dplyr::mutate(sp = paste0(sp, " (", prev_pct, ")")) |>
+    dplyr::mutate(sp = stringr::str_replace_all(sp,"0.5", ".5"))
 
-  if(order_var == 'prevalence'){vp_order <- mbc |>
-    dplyr::left_join(prevalence)  |>
-    dplyr::filter(var == dplyr::first(mbc$var |> unique()),
-           Iteration ==1, Chain==1)|>
-    dplyr::arrange(prevalence)}else{
-      vp_order <- mbc |>
-        dplyr::left_join(prevalence)  |>
-        dplyr::filter(var == order_var,
-                      Iteration ==1, Chain==1)|>
-        dplyr::arrange(value)
+  vp_order <- mbc |>
+    dplyr::left_join(prevalence) |>
+    dplyr::filter(var == first(mbc$var |> unique()),
+           Iteration ==1, Chain==1) |>
+    dplyr::arrange((fg), prevalence)
+  vp_order = vp_order |>
+    dplyr::mutate(sp_f = factor(sp, levels = vp_order$sp)) |>
+    dplyr::select(sp, sp_f)
 
-    }
-  vp_order <- dplyr::mutate(vp_order, gensp_f = factor(gensp, levels = vp_order$gensp)) |>
-    dplyr::select(gensp, gensp_f, gen)
+  n_native <- Hm$TrData  |>
+    dplyr::mutate(i = ifelse(origin == "N", 1, 0)) |>
+    dplyr::pull(i) |>
+    sum()
 
-  if(any(!is.na(included_variables))){
+  if(any(!is.na(lut_ivars))){
     mbc <- dplyr::mutate(mbc, var = lut_ivars[var])
   }
   p <- ggplot2::ggplot(mbc |> dplyr::left_join(vp_order),
-             ggplot2::aes(x=value, y = gensp,#_f,
+             ggplot2::aes(x=value, y = sp_f,
                   group=as.factor(Chain))) +
     ggplot2::scale_color_manual(values = (c("white", "grey90")))+
     ggdist::stat_slab(height=2,  lwd = .5, #alpha = 0.95,
@@ -453,6 +484,7 @@ gghm_beta2 <- function(Hm, order_var = 'prevalence',
     ggplot2::theme_classic() +
     ggplot2::guides(fill="none", alpha="none", color = "none")+
     ggplot2::geom_vline(xintercept=0, col="black", lty=2) +
+    ggplot2::geom_hline(yintercept = n_native + 0.5) +
     ggnewscale::new_scale_fill() +
     ggplot2::xlab("Scaled Effect on Occurrence Probability") +
     ggplot2::ylab("Species or Species Group (% Prevalence)") +
@@ -460,7 +492,7 @@ gghm_beta2 <- function(Hm, order_var = 'prevalence',
           # panel.grid = element_blank(),
           axis.text.x = ggplot2::element_blank(),
           axis.ticks.x = ggplot2::element_blank(),
-          axis.text.y = ggplot2::element_text(size=12))#;p
+          axis.text.y = ggplot2::element_text(size=12));p
   return(p)
 }
 

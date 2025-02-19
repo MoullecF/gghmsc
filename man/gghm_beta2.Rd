@@ -7,6 +7,8 @@
 gghm_beta2(
   Hm,
   order_var = "prevalence",
+  grouping_var_y = NA,
+  groupiin_var_y_2 = NA,
   lut_gensp = NA,
   included_variables = NA,
   lut_ivars = NA
@@ -14,4 +16,9 @@ gghm_beta2(
 }
 \description{
 Plot beta estimates using PDFs
+}
+\examples{
+data("Hm")
+gghm_beta2(Hm)
+
 }
