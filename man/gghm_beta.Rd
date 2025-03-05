@@ -26,9 +26,3 @@ gghm_beta(
 \description{
 Plot beta posterior estimates as colored boxes
 }
-\examples{
-data("Hm")
-gghm_beta(Hm)
-
-
-}

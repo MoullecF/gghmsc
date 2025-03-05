@@ -10,6 +10,7 @@ gghm_beta2(
   grouping_var_y = NA,
   groupiin_var_y_2 = NA,
   lut_gensp = NA,
+  excluded_spp = NA,
   included_variables = NA,
   lut_ivars = NA
 )
@@ -19,6 +20,8 @@ Plot beta estimates using PDFs
 }
 \examples{
 data("Hm")
-gghm_beta2(Hm)
+lut_gensp <- colnames(Hm$Y) |> str_replace_all("introduced_annual_forb", "other IAF") |> str_replace_all('Alyssum desertorum', 'test' )
+names(lut_gensp) <- colnames(Hm$Y)
+gghm_beta2(Hm, lut_gensp = lut_spp)
 
 }

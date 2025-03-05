@@ -72,7 +72,12 @@ gghm_convergence <- function(Hm,
   vline_df <- data.frame(fit_statistic = c("ess", "psrf"),
                          xintercept = c(length(mpost$Beta)*nrow(mpost$Beta[[1]]),
                                         1.01))
+  if(!beta) d <- filter(d, variable != "beta")
 
+  d <- d |>
+    mutate(variable = str_replace_all(variable, "beta", "Environmental Covariates") |>
+             str_replace_all('gamma', "Traits") |>
+             str_replace_all('omega', "Residual Correlations"))
 
   ggplot2::ggplot(d, ggplot2::aes(x=value)) +
     geom_histogram(bins=70) +
@@ -361,15 +366,18 @@ gghm_beta <- function(Hm,
 #'
 #' @examples
 #' data("Hm")
-#' gghm_beta2(Hm)
+#' lut_gensp <- colnames(Hm$Y) |> str_replace_all("introduced_annual_forb", "other IAF") |> str_replace_all('Alyssum desertorum', 'test' )
+#' names(lut_gensp) <- colnames(Hm$Y)
+#' gghm_beta2(Hm, lut_gensp = lut_spp)
 #'
 #' @export
 gghm_beta2 <- function(Hm, order_var = 'prevalence',
                        grouping_var_y = NA,
                        groupiin_var_y_2 = NA,
-                         lut_gensp=NA,
-                         included_variables = NA,
-                         lut_ivars = NA){
+                       lut_gensp=NA,
+                       excluded_spp = NA,
+                       included_variables = NA,
+                       lut_ivars = NA){
   requireNamespace('dplyr')
   requireNamespace('ggthemes')
   requireNamespace('tidyr')
@@ -395,12 +403,13 @@ gghm_beta2 <- function(Hm, order_var = 'prevalence',
     dplyr::filter(value<4 & value>-4) |>
     dplyr::ungroup()
 
-  if(!is.na(lut_gensp)){mbc0 <- mbc0 |>
-    dplyr::mutate(sp = lut_gensp[sp])}
+
+
 
   if(any(!is.na(included_variables))){
     mbc0 <- dplyr::filter(mbc0, var %in% included_variables)
   }
+
 
   prevalence <- Hm$Y |>
     tibble::as_tibble(rownames = "plot")
@@ -412,69 +421,65 @@ gghm_beta2 <- function(Hm, order_var = 'prevalence',
               prev_pct = sum(value)/dplyr::n()*100) |>
     dplyr::mutate(prev_pct = ifelse(prev_pct<1, round(prev_pct,1), round(prev_pct))) |>
     dplyr::ungroup()
+  if(any(!is.na(excluded_spp))){
+    mbc0 <- dplyr::filter(mbc0, !sp %in% excluded_spp)
+    prevalence <- dplyr::filter(prevalence, !sp %in% excluded_spp)
 
-  # if(order_var == 'prevalence'){vp_order <- mbc |>
-  #   dplyr::left_join(prevalence)  |>
-  #   dplyr::filter(var == dplyr::first(mbc$var |> unique()),
-  #          Iteration ==1, Chain==1)|>
-  #   dplyr::arrange(prevalence)
-  # }else{
-  #     vp_order <- mbc |>
-  #       dplyr::left_join(prevalence)  |>
-  #       dplyr::filter(var == order_var,
-  #                     Iteration ==1, Chain==1)|>
-  #       dplyr::arrange(value)
-  #
-  # }
-  #
-  # if(!is.na(grouping_var_y[1])){
-  #   if(grouping_var_y == "origin"){
-  #     sp_sorted <- Hm$TrData |>
-  #       tibble::as_tibble(rownames = "species") |>
-  #       dplyr::arrange(origin, cots) |>
-  #       dplyr::pull(species)
-  #
-  #     }else{
-  #         sp_sorted <- Hm$TrData |>
-  #           tibble::as_tibble(rownames = "species") |>
-  #           dplyr::arrange(grouping_var_y, grouping_var_y_2) |>
-  #           dplyr::pull(species)
-  #     }
-  #   vp_order <- dplyr::mutate(vp_order,
-  #                             sp_f = factor(sp, levels = sp_sorted)) |>
-  #     dplyr::select(sp, sp_f)
-  # }else{
-  # vp_order <- dplyr::mutate(vp_order,
-  #                           sp_f = factor(sp, levels = vp_order$sp)) |>
-  #   dplyr::select(sp, sp_f)}
+  }
+  if(any(!is.na(lut_gensp))){
+    prevalence <- dplyr::mutate(prevalence, sp = lut_gensp[sp])
+  }
+
+
 
   mbc <- mbc0 |>
+    dplyr::left_join(Hm$TrData |> tibble::as_tibble(rownames = "sp"))
+
+  if(any(!is.na(lut_gensp))){
+    mbc <- dplyr::mutate(mbc, sp = lut_gensp[sp])
+  }
+
+  mbc <- mbc |>
     dplyr::left_join(prevalence) |>
-    dplyr::left_join(Hm$TrData |> as_tibble(rownames = "sp")) |>
     dplyr::mutate(sp = paste0(sp, " (", prev_pct, ")")) |>
     dplyr::mutate(sp = stringr::str_replace_all(sp,"0.5", ".5"))
 
   vp_order <- mbc |>
     dplyr::left_join(prevalence) |>
-    dplyr::filter(var == first(mbc$var |> unique()),
+    dplyr::filter(var == mbc$var[1],
            Iteration ==1, Chain==1) |>
     dplyr::arrange((fg), prevalence)
-  vp_order = vp_order |>
+  vp_order <- vp_order |>
     dplyr::mutate(sp_f = factor(sp, levels = vp_order$sp)) |>
     dplyr::select(sp, sp_f)
 
-  n_native <- Hm$TrData  |>
-    dplyr::mutate(i = ifelse(origin == "N", 1, 0)) |>
-    dplyr::pull(i) |>
-    sum()
+
+
+   n_native <- ifelse(!any(is.na(excluded_spp)),
+     Hm$TrData  |>
+       tibble::as_tibble(rownames = 'sp') |>
+       dplyr::filter(!sp %in% excluded_spp) |>
+      dplyr::mutate(i = ifelse(origin == "I", 1, 0)) |>
+      dplyr::pull(i) |>
+      sum(),
+     Hm$TrData  |>
+       tibble::as_tibble(rownames = 'sp') |>
+       dplyr::mutate(i = ifelse(origin == "I", 1, 0)) |>
+       dplyr::pull(i) |>
+       sum())
+
+  dp <- mbc |> dplyr::left_join(vp_order)
 
   if(any(!is.na(lut_ivars))){
-    mbc <- dplyr::mutate(mbc, var = lut_ivars[var])
+    dp <- dplyr::mutate(dp, var = lut_ivars[var])
   }
-  p <- ggplot2::ggplot(mbc |> dplyr::left_join(vp_order),
+
+
+  p <- ggplot2::ggplot(dp,
              ggplot2::aes(x=value, y = sp_f,
                   group=as.factor(Chain))) +
     ggplot2::scale_color_manual(values = (c("white", "grey90")))+
+    ggplot2::geom_hline(yintercept = n_native + 0.5) +
     ggdist::stat_slab(height=2,  lwd = .5, #alpha = 0.95,
                       color = "black",
                      ggplot2::aes(fill = ggplot2::after_stat(x>0),
@@ -484,7 +489,6 @@ gghm_beta2 <- function(Hm, order_var = 'prevalence',
     ggplot2::theme_classic() +
     ggplot2::guides(fill="none", alpha="none", color = "none")+
     ggplot2::geom_vline(xintercept=0, col="black", lty=2) +
-    ggplot2::geom_hline(yintercept = n_native + 0.5) +
     ggnewscale::new_scale_fill() +
     ggplot2::xlab("Scaled Effect on Occurrence Probability") +
     ggplot2::ylab("Species or Species Group (% Prevalence)") +
@@ -492,7 +496,7 @@ gghm_beta2 <- function(Hm, order_var = 'prevalence',
           # panel.grid = element_blank(),
           axis.text.x = ggplot2::element_blank(),
           axis.ticks.x = ggplot2::element_blank(),
-          axis.text.y = ggplot2::element_text(size=12));p
+          axis.text.y = ggplot2::element_text(size=12))#;p
   return(p)
 }
 
@@ -673,8 +677,7 @@ gghm_omega <- function(Hm,
 #'
 #' @param which either all, r2 or named. all is a histogram with R2 and RSME. r2 is just R2. named is bar plot each species named on the  y axis.
 #' @export
-gghm_fit <- function(Hm, which = "r2", sp_names = "none",
-                       title = "Variance Explained"){
+gghm_r2_tjur <- function(Hm, title = "Variance Explained", sp_names = 'none'){
   requireNamespace("Hmsc")
   requireNamespace("tibble")
   requireNamespace("tidyr")
@@ -691,49 +694,52 @@ gghm_fit <- function(Hm, which = "r2", sp_names = "none",
   df <- tidyr::pivot_longer(df, cols = names(df))
   spp <- colnames(Hm$Y)
 
-  if(which == "named"){
+  # if(which == "named"){
     means <- df |>
       dplyr::filter(name %in% c("TjurR2", "R2")) |>
-      dplyr::mutate(species = spp |> str_replace_all("_", ' ')) |>
+      dplyr::mutate(species = spp |> stringr::str_replace_all("_", ' ')) |>
       na.omit()
     if(sp_names[1] != "none") means <- dplyr::mutate(means, species = sp_names[species])
-    return(ggplot2::ggplot(means, ggplot2::aes(x=value, y=reorder(species, value))) +
+    return(
+      ggplot2::ggplot(means, ggplot2::aes(x=value, y=reorder(species, value))) +
              ggplot2::geom_bar(stat = "identity") +
              ggplot2::ggtitle(title) +
              ggplot2::ylab("Species") +
-             ggplot2::xlab("R<sup>2</sup>") +
+             ggplot2::xlab("Tjur R<sup>2</sup>") +
              ggplot2::theme(axis.title.x = ggtext::element_markdown(),
-                            axis.text.y = ggplot2::element_text(face = "italic")))
-  }
-
-  if(which == "all"){
-    means <- df |>
-      dplyr::group_by(name) |>
-      dplyr::summarise(mean = mean(value)) |>
-      dplyr::ungroup()
-
-    return(ggplot2::ggplot(df) +
-             ggplot2::geom_histogram(aes(x=value)) +
-             ggplot2::facet_wrap(~name) +
-             ggplot2::geom_text(data = means, ggplot2::aes(label = paste("Avg =", round(mean, 2))), x=.75, y=4) +
-             ggplot2::ggtitle(title))}
-
-  if(which == "r2"){
-    means <- df |>
-      dplyr::filter(name == "R2") |>
-      dplyr::group_by(name) |>
-      dplyr::summarise(mean = mean(value),
-                max = max(value),
-                min = min(value)) |>
-      dplyr::ungroup()
-
-    return(ggplot2::ggplot(df%>% dplyr::filter(name == "R2") ) +
-             ggplot2::geom_histogram(aes(x=value),bins = 15) +
-             ggplot2::ggtitle(paste("Tjur R<sup>2</sup>, Avg:", round(means$mean, 2),
-                                    ", Range: ", round(means$min, 2)," - ",round(means$max, 2))) +
-             ggplot2::ggtitle(title) +
-             ggplot2::theme(plot.title = ggtext::element_markdown()))
-  }
+                            axis.text.y = ggplot2::element_text(face = "italic")) +
+        ggplot2::theme_bw()
+      )
+  # }
+  #
+  # if(which == "all"){
+  #   means <- df |>
+  #     dplyr::group_by(name) |>
+  #     dplyr::summarise(mean = mean(value)) |>
+  #     dplyr::ungroup()
+  #
+  #   return(ggplot2::ggplot(df) +
+  #            ggplot2::geom_histogram(aes(x=value)) +
+  #            ggplot2::facet_wrap(~name) +
+  #            ggplot2::geom_text(data = means, ggplot2::aes(label = paste("Avg =", round(mean, 2))), x=.75, y=4) +
+  #            ggplot2::ggtitle(title))}
+  #
+  # if(which == "r2"){
+  #   means <- df |>
+  #     dplyr::filter(name == "R2") |>
+  #     dplyr::group_by(name) |>
+  #     dplyr::summarise(mean = mean(value),
+  #               max = max(value),
+  #               min = min(value)) |>
+  #     dplyr::ungroup()
+  #
+  #   return(ggplot2::ggplot(df%>% dplyr::filter(name == "R2") ) +
+  #            ggplot2::geom_histogram(aes(x=value),bins = 15) +
+  #            ggplot2::ggtitle(paste("Tjur R<sup>2</sup>, Avg:", round(means$mean, 2),
+  #                                   ", Range: ", round(means$min, 2)," - ",round(means$max, 2))) +
+  #            ggplot2::ggtitle(title) +
+  #            ggplot2::theme(plot.title = ggtext::element_markdown()))
+  # }
 }
 
 
